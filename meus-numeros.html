@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Números | MAIKINHO RIFAS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .busca-container { padding: 20px; }
+        .resultado-pedido { 
+            background: #1e1e1e; 
+            margin-bottom: 15px; 
+            padding: 15px; 
+            border-radius: 10px; 
+            border-left: 5px solid var(--primary);
+            text-align: left;
+        }
+        .lista-numeros { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 5px; 
+            margin-top: 10px; 
+        }
+        .num-badge { 
+            background: var(--primary); 
+            color: #000; 
+            padding: 2px 8px; 
+            border-radius: 4px; 
+            font-weight: bold; 
+            font-size: 14px;
+        }
+        .status-badge { font-size: 10px; text-transform: uppercase; background: #444; padding: 2px 5px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🔍 CONSULTAR COTAS</h1>
+        <p>Digite seu WhatsApp para ver seus números</p>
+    </header>
+
+    <main class="container">
+        <section class="rifa-card busca-container">
+            <div class="input-group">
+                <label>WhatsApp (com DDD)</label>
+                <input type="tel" id="busca-telefone" placeholder="(00) 00000-0000">
+            </div>
+            <button class="btn-buy" id="btn-buscar">BUSCAR MEUS NÚMEROS</button>
+
+            <div id="resultados" style="margin-top: 20px;">
+                </div>
+            
+            <a href="index.html" class="link-voltar">Voltar ao início</a>
+        </section>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            // COLE SUAS CREDENCIAIS AQUI
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        document.getElementById('btn-buscar').addEventListener('click', async () => {
+            const fone = document.getElementById('busca-telefone').value.trim();
+            const resDiv = document.getElementById('resultados');
+            
+            if(!fone) return alert("Digite o número do WhatsApp");
+
+            resDiv.innerHTML = "<p>Buscando...</p>";
+
+            try {
+                // Busca pedidos que batem com o WhatsApp informado
+                const q = query(collection(db, "pedidos"), where("whatsapp", "==", fone));
+                const querySnapshot = await getDocs(q);
+                
+                resDiv.innerHTML = "";
+
+                if (querySnapshot.empty) {
+                    resDiv.innerHTML = "<p>Nenhum pedido encontrado para este número.</p>";
+                    return;
+                }
+
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const htmlPedido = `
+                        <div class="resultado-pedido">
+                            <span class="status-badge">${data.status}</span>
+                            <p style="margin: 5px 0;"><strong>Pedido:</strong> #${doc.id.substring(0,6)}</p>
+                            ${data.status === 'pago' ? `
+                                <div class="lista-numeros">
+                                    ${data.numeros.map(n => `<span class="num-badge">${n}</span>`).join('')}
+                                </div>
+                            ` : `<p style="color: #ffcc00; font-size: 12px;">Aguardando confirmação do pagamento.</p>`}
+                        </div>
+                    `;
+                    resDiv.innerHTML += htmlPedido;
+                });
+
+            } catch (e) {
+                console.error(e);
+                resDiv.innerHTML = "<p>Erro na busca. Tente novamente.</p>";
+            }
+        });
+    </script>
+</body>
+</html>

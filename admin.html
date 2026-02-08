@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin | MAIKINHO RIFAS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .admin-container { padding: 20px; max-width: 1000px; margin: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #1e1e1e; color: white; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #333; }
+        th { background: #ffcc00; color: black; }
+        .status-pendente { color: #ffcc00; font-weight: bold; }
+        .status-pago { color: #28a745; font-weight: bold; }
+        .btn-confirmar { background: #28a745; color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 5px; }
+        .btn-confirmar:hover { background: #218838; }
+        .badge { padding: 5px 10px; border-radius: 4px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>💎 GESTÃO DE VENDAS</h1>
+        <p>Maikinho, aqui controlas o teu império!</p>
+    </header>
+
+    <div class="admin-container">
+        <button onclick="window.location.reload()" style="padding: 10px; cursor: pointer;">🔄 Atualizar Lista</button>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Cliente</th>
+                    <th>WhatsApp</th>
+                    <th>Cotas</th>
+                    <th>Status</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody id="lista-pedidos">
+                </tbody>
+        </table>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            // COLOCA AQUI AS TUAS CREDENCIAIS DO FIREBASE
+             apiKey: "AIzaSyA9MnirbbY3IzqAa_eIGCw7juZ_kh53fxU",
+             authDomain: "maikinho-rifas.firebaseapp.com",
+           projectId: "maikinho-rifas",
+          storageBucket: "maikinho-rifas.firebasestorage.app",
+              messagingSenderId: "315657300726",
+               appId: "1:315657300726:web:d6e1cde4a34685bae25ad7",
+          measurementId: "G-RMCHZ439M3"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        async function carregarPedidos() {
+            const lista = document.getElementById('lista-pedidos');
+            lista.innerHTML = "<tr><td colspan='6'>A carregar pedidos...</td></tr>";
+
+            try {
+                // Procura os pedidos ordenados por data (mais recentes primeiro)
+                const q = query(collection(db, "pedidos"), orderBy("data", "desc"));
+                const querySnapshot = await getDocs(q);
+                
+                lista.innerHTML = "";
+
+                querySnapshot.forEach((docSnap) => {
+                    const p = docSnap.data();
+                    const id = docSnap.id;
+                    const dataFormatada = p.data ? new Date(p.data.seconds * 1000).toLocaleDateString('pt-BR') : '---';
+
+                    lista.innerHTML += `
+                        <tr>
+                            <td>${dataFormatada}</td>
+                            <td>${p.nome}</td>
+                            <td><a href="https://wa.me/${p.whatsapp.replace(/\D/g,'')}" target="_blank" style="color:#25D366">Link Zap</a></td>
+                            <td>${p.qtd}</td>
+                            <td class="status-${p.status}">${p.status.toUpperCase()}</td>
+                            <td>
+                                ${p.status === 'pendente' ? 
+                                `<button class="btn-confirmar" onclick="confirmarPedido('${id}')">Confirmar Pago</button>` : 
+                                '✅ Pago'}
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (error) {
+                console.error("Erro ao carregar:", error);
+                lista.innerHTML = "<tr><td colspan='6'>Erro ao carregar dados. Verifica as Rules do Firebase.</td></tr>";
+            }
+        }
+
+        // Função global para o botão funcionar
+      window.confirmarPedido = async (id) => {
+    if(confirm("Confirmar pagamento e gerar números da sorte?")) {
+        const pedidoRef = doc(db, "pedidos", id);
+        
+        // 1. Pegar os dados do pedido para saber quantas cotas ele comprou
+        const docSnap = await getDoc(pedidoRef);
+        const dados = docSnap.data();
+        const quantidade = dados.qtd;
+
+        // 2. Gerar números aleatórios (Ex: entre 0000 e 9999)
+        let numerosSorteados = [];
+        while(numerosSorteados.length < quantidade) {
+            // Gera um número entre 0 e 9999 e formata com 4 dígitos (ex: 0042)
+            let num = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+            
+            // Evita números duplicados no mesmo pedido
+            if(!numerosSorteados.includes(num)) {
+                numerosSorteados.push(num);
+            }
+        }
+
+        // 3. Atualizar o pedido no Firebase com o status PAGO e os NÚMEROS
+        try {
+            await updateDoc(pedidoRef, { 
+                status: "pago",
+                numeros: numerosSorteados 
+            });
+            
+            alert(`Sucesso! Foram gerados ${quantidade} números para ${dados.nome}`);
+            carregarPedidos();
+        } catch (error) {
+            console.error("Erro ao gerar números:", error);
+            alert("Erro ao confirmar. Verifique o console.");
+        }
+    }
+}
+    </script>
+</body>
+</html>
